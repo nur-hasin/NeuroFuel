@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="bn">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroFuel — Brain & Muscle Tracker</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Hind+Siliguri:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0c12;
+            --surface: #0f1320;
+            --card: #131826;
+            --border: #1e2840;
+            --cyan: #00e5ff;
+            --cyan-dim: #00b8d4;
+            --cyan-glow: rgba(0, 229, 255, 0.15);
+            --green: #00ff9d;
+            --green-dim: rgba(0, 255, 157, 0.15);
+            --amber: #ffb300;
+            --amber-dim: rgba(255, 179, 0, 0.15);
+            --purple: #b388ff;
+            --purple-dim: rgba(179, 136, 255, 0.15);
+            --red: #ff5252;
+            --red-dim: rgba(255, 82, 82, 0.15);
+            --text: #e0e8f0;
+            --text-muted: #6b7a99;
+            --mono: 'Share Tech Mono', monospace;
+            --display: 'Orbitron', sans-serif;
+            --body: 'Hind Siliguri', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--body);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Scanline overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.03) 2px,
+                    rgba(0, 0, 0, 0.03) 4px);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 16px 10px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .app-title {
+            font-family: var(--display);
+            font-size: 16px;
+            font-weight: 900;
+            color: var(--cyan);
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+        }
+
+        .app-sub {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
+
+        .date-badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--cyan-dim);
+            background: var(--cyan-glow);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 4px;
+            text-align: right;
+        }
+
+        /* ── MACRO SUMMARY BAR ── */
+        .macro-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .macro-item {
+            text-align: center;
+        }
+
+        .macro-label {
+            font-family: var(--mono);
+            font-size: 8px;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .macro-value {
+            font-family: var(--display);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .macro-value.cal {
+            color: var(--amber);
+        }
+
+        .macro-value.protein {
+            color: var(--green);
+        }
+
+        .macro-value.water {
+            color: var(--cyan);
+        }
+
+        .macro-bar-track {
+            height: 2px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .macro-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.6s ease;
+        }
+
+        .macro-bar-fill.cal {
+            background: var(--amber);
+        }
+
+        .macro-bar-fill.protein {
+            background: var(--green);
+        }
+
+        .macro-bar-fill.water {
+            background: var(--cyan);
+        }
+
+        /* ── TABS ── */
+        .tabs {
+            display: flex;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            padding: 10px 14px;
+            white-space: nowrap;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: var(--cyan);
+            border-bottom-color: var(--cyan);
+        }
+
+        /* ── CONTENT ── */
+        .content {
+            padding: 14px 16px 100px;
+        }
+
+        /* ── MEAL CARD ── */
+        .meal-section {
+            margin-bottom: 18px;
+        }
+
+        .meal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .meal-icon {
+            font-size: 18px;
+            width: 36px;
+            height: 36px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .meal-title {
+            flex: 1;
+        }
+
+        .meal-name {
+            font-family: var(--display);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--cyan);
+            letter-spacing: 2px;
+        }
+
+        .meal-time {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .meal-tag {
+            font-family: var(--mono);
+            font-size: 8px;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            border: 1px solid;
+        }
+
+        .tag-cyan {
+            color: var(--cyan);
+            border-color: rgba(0, 229, 255, 0.3);
+            background: var(--cyan-glow);
+        }
+
+        .tag-green {
+            color: var(--green);
+            border-color: rgba(0, 255, 157, 0.3);
+            background: var(--green-dim);
+        }
+
+        .tag-amber {
+            color: var(--amber);
+            border-color: rgba(255, 179, 0, 0.3);
+            background: var(--amber-dim);
+        }
+
+        .tag-purple {
+            color: var(--purple);
+            border-color: rgba(179, 136, 255, 0.3);
+            background: var(--purple-dim);
+        }
+
+        .food-list {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .food-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .food-item:last-child {
+            border-bottom: none;
+        }
+
+        .food-item.checked {
+            background: rgba(0, 229, 255, 0.04);
+        }
+
+        .check-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            font-size: 11px;
+            color: transparent;
+        }
+
+        .food-item.checked .check-btn {
+            background: var(--cyan);
+            border-color: var(--cyan);
+            color: #000;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+        }
+
+        .food-info {
+            flex: 1;
+        }
+
+        .food-name {
+            font-family: var(--body);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .food-item.checked .food-name {
+            color: var(--text-muted);
+            text-decoration: line-through;
+            text-decoration-color: rgba(0, 229, 255, 0.4);
+        }
+
+        .food-detail {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .food-benefit {
+            font-size: 9px;
+            color: rgba(0, 229, 255, 0.6);
+            margin-top: 2px;
+            font-style: italic;
+        }
+
+        .food-cal {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--amber);
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .food-protein {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--green);
+            text-align: right;
+        }
+
+        /* ── WATER TRACKER ── */
+        .water-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 18px;
+        }
+
+        .water-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .water-title {
+            font-family: var(--display);
+            font-size: 10px;
+            color: var(--cyan);
+            letter-spacing: 2px;
+        }
+
+        .water-count {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--cyan);
+        }
+
+        .water-glasses {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .glass-btn {
+            width: 36px;
+            height: 44px;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 4px 4px 6px 6px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .glass-btn.filled {
+            border-color: var(--cyan);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+        }
+
+        .glass-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 229, 255, 0.4), rgba(0, 229, 255, 0.1));
+            transition: height 0.3s ease;
+        }
+
+        .glass-icon {
+            font-size: 16px;
+            z-index: 1;
+        }
+
+        .water-label {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        /* ── STATS TAB ── */
+        .stats-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .stats-title {
+            font-family: var(--display);
+            font-size: 9px;
+            color: var(--cyan);
+            letter-spacing: 2px;
+            margin-bottom: 14px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .stat-label {
+            font-family: var(--body);
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .stat-bar-wrap {
+            flex: 1;
+            margin: 0 12px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .stat-bar-inner {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.8s ease;
+        }
+
+        .stat-val {
+            font-family: var(--mono);
+            font-size: 10px;
+            width: 50px;
+            text-align: right;
+        }
+
+        /* ── TIPS TAB ── */
+        .tip-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border-left: 3px solid;
+        }
+
+        .tip-card.cyan {
+            border-left-color: var(--cyan);
+        }
+
+        .tip-card.green {
+            border-left-color: var(--green);
+        }
+
+        .tip-card.amber {
+            border-left-color: var(--amber);
+        }
+
+        .tip-card.purple {
+            border-left-color: var(--purple);
+        }
+
+        .tip-icon {
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+
+        .tip-title {
+            font-family: var(--display);
+            font-size: 9px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+
+        .tip-card.cyan .tip-title {
+            color: var(--cyan);
+        }
+
+        .tip-card.green .tip-title {
+            color: var(--green);
+        }
+
+        .tip-card.amber .tip-title {
+            color: var(--amber);
+        }
+
+        .tip-card.purple .tip-title {
+            color: var(--purple);
+        }
+
+        .tip-text {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* ── WORKOUT TAB ── */
+        .workout-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .workout-title {
+            font-family: var(--display);
+            font-size: 10px;
+            color: var(--purple);
+            letter-spacing: 2px;
+            margin-bottom: 14px;
+        }
+
+        .workout-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .workout-item:last-child {
+            border-bottom: none;
+        }
+
+        .w-check {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1.5px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .workout-item.checked .w-check {
+            background: var(--purple);
+            border-color: var(--purple);
+            color: #fff;
+            box-shadow: 0 0 8px rgba(179, 136, 255, 0.4);
+        }
+
+        .w-name {
+            font-size: 13px;
+            flex: 1;
+        }
+
+        .workout-item.checked .w-name {
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+
+        .w-time {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        /* ── PROGRESS RING ── */
+        .progress-section {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .ring-container {
+            flex: 1;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .ring-label {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        svg.ring {
+            transform: rotate(-90deg);
+        }
+
+        .ring-pct {
+            font-family: var(--display);
+            font-size: 18px;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+
+        /* ── RESET BTN ── */
+        .reset-btn {
+            width: 100%;
+            background: transparent;
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            color: var(--red);
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 2px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+
+        .reset-btn:hover {
+            background: var(--red-dim);
+        }
+
+        /* ── BOTTOM NAV ── */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 10px 4px 8px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            transition: all 0.2s;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        .nav-label {
+            font-family: var(--mono);
+            font-size: 8px;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .nav-btn.active .nav-label {
+            color: var(--cyan);
+        }
+
+        .nav-btn.active .nav-icon {
+            filter: drop-shadow(0 0 4px var(--cyan));
+        }
+
+        /* ── HIDDEN ── */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ── GLOW PULSE ANIMATION ── */
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 6px rgba(0, 229, 255, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 16px rgba(0, 229, 255, 0.6);
+            }
+        }
+
+        .active-meal {
+            animation: pulse-glow 2s infinite;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--cyan);
+            color: #000;
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 1px;
+            padding: 8px 18px;
+            border-radius: 20px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 200;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-top">
+            <div>
+                <div class="app-title">NEUROFUEL</div>
+                <div class="app-sub">BRAIN &amp; MUSCLE TRACKER // v1.0</div>
+            </div>
+            <div class="date-badge" id="dateBadge"></div>
+        </div>
+    </div>
+
+    <!-- MACRO SUMMARY -->
+    <div class="macro-bar">
+        <div class="macro-item">
+            <div class="macro-label">ক্যালোরি</div>
+            <div class="macro-value cal" id="calVal">0 / 2100</div>
+            <div class="macro-bar-track">
+                <div class="macro-bar-fill cal" id="calBar" style="width:0%"></div>
+            </div>
+        </div>
+        <div class="macro-item">
+            <div class="macro-label">প্রোটিন</div>
+            <div class="macro-value protein" id="proteinVal">0 / 82g</div>
+            <div class="macro-bar-track">
+                <div class="macro-bar-fill protein" id="proteinBar" style="width:0%"></div>
+            </div>
+        </div>
+        <div class="macro-item">
+            <div class="macro-label">পানি</div>
+            <div class="macro-value water" id="waterVal">0 / 3L</div>
+            <div class="macro-bar-track">
+                <div class="macro-bar-fill water" id="waterBar" style="width:0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('today')">📋 আজকের মেনু</div>
+        <div class="tab" onclick="switchTab('water')">💧 পানি</div>
+        <div class="tab" onclick="switchTab('workout')">🏋️ ব্যায়াম</div>
+        <div class="tab" onclick="switchTab('stats')">📊 পরিসংখ্যান</div>
+        <div class="tab" onclick="switchTab('tips')">💡 টিপস</div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <!-- TODAY TAB -->
+        <div id="tab-today" class="tab-content active">
+
+            <!-- Breakfast -->
+            <div class="meal-section">
+                <div class="meal-header">
+                    <div class="meal-icon">🌅</div>
+                    <div class="meal-title">
+                        <div class="meal-name">সকালের নাস্তা</div>
+                        <div class="meal-time">⏰ ৮:০০ — ৯:০০ AM</div>
+                    </div>
+                    <div class="meal-tag tag-cyan">FOCUS BOOST</div>
+                </div>
+                <div class="food-list">
+                    <div class="food-item" onclick="toggleFood(this, 180, 8)" data-id="b1">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">যবের ছাতু শেক</div>
+                            <div class="food-detail">৩-৪ চামচ + ১ গ্লাস দুধ + ১ চামচ মধু</div>
+                            <div class="food-benefit">⚡ ধীরে ধীরে এনার্জি রিলিজ করে — কোডিং সেশনে মনোযোগ ধরে রাখে</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~180 kcal</div>
+                            <div class="food-protein">8g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 78, 6)" data-id="b2">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">সেদ্ধ ডিম (কুসুমসহ)</div>
+                            <div class="food-detail">১টি আস্ত সেদ্ধ ডিম</div>
+                            <div class="food-benefit">🧠 Choline — ব্রেন পাওয়ারের জন্য</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~78 kcal</div>
+                            <div class="food-protein">6g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 120, 4)" data-id="b3">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">ভেজানো বাদাম</div>
+                            <div class="food-detail">৩টি আখরোট + ৫টি কাঠবাদাম (খোসা ছাড়িয়ে)</div>
+                            <div class="food-benefit">🧠 Omega-3 + Vitamin E — মেমোরি বুস্টার</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~120 kcal</div>
+                            <div class="food-protein">4g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 80, 1)" data-id="b4">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">কলা + কিসমিস</div>
+                            <div class="food-detail">১টি কলা + ৫টি কিসমিস</div>
+                            <div class="food-benefit">⚡ Natural sugar — দ্রুত এনার্জি</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~80 kcal</div>
+                            <div class="food-protein">1g ⬆</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lunch -->
+            <div class="meal-section">
+                <div class="meal-header">
+                    <div class="meal-icon">昼</div>
+                    <div class="meal-title">
+                        <div class="meal-name">দুপুরের খাবার</div>
+                        <div class="meal-time">⏰ ১:৩০ — ২:৩০ PM</div>
+                    </div>
+                    <div class="meal-tag tag-green">LOGIC MODE</div>
+                </div>
+                <div class="food-list">
+                    <div class="food-item" onclick="toggleFood(this, 340, 7)" data-id="l1">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">লাল চালের ভাত + ডাল</div>
+                            <div class="food-detail">১-২ প্লেট ভাত + ১ বাটি ঘন ডাল</div>
+                            <div class="food-benefit">💡 Complex carb — ব্রেন ফুয়েল, দীর্ঘস্থায়ী ফোকাস</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~340 kcal</div>
+                            <div class="food-protein">7g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 200, 22)" data-id="l2">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">মাছ বা মুরগির মাংস</div>
+                            <div class="food-detail">১-২ টুকরো (যেকোনো একটি)</div>
+                            <div class="food-benefit">🏋️ Protein + Omega-3 — মাসল ও ব্রেন উভয়ের জন্য</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~200 kcal</div>
+                            <div class="food-protein">22g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 60, 3)" data-id="l3">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">সবুজ সবজি</div>
+                            <div class="food-detail">১ বাটি (পালং শাক / ব্রকলি / পাতাকপি)</div>
+                            <div class="food-benefit">🌿 Antioxidant — ব্রেন ফগ দূর করে, ক্রিয়েটিভিটি বাড়ায়</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~60 kcal</div>
+                            <div class="food-protein">3g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 80, 1)" data-id="l4">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">ফ্রুট সালাদ</div>
+                            <div class="food-detail">½ পেয়ারা + গাজর-শসা + ২ টুকরো আম (ঐচ্ছিক)</div>
+                            <div class="food-benefit">🍊 Vitamin C — ইমিউনিটি ও স্ট্রেস কমায়</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~80 kcal</div>
+                            <div class="food-protein">1g ⬆</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Afternoon snack -->
+            <div class="meal-section">
+                <div class="meal-header">
+                    <div class="meal-icon">🥜</div>
+                    <div class="meal-title">
+                        <div class="meal-name">বিকেলের নাস্তা</div>
+                        <div class="meal-time">⏰ ৫:০০ — ৫:৩০ PM</div>
+                    </div>
+                    <div class="meal-tag tag-amber">ENERGY BOOST</div>
+                </div>
+                <div class="food-list">
+                    <div class="food-item" onclick="toggleFood(this, 90, 2)" data-id="a1">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">খই + দুধ</div>
+                            <div class="food-detail">১ বাটি খই + সামান্য তরল দুধ</div>
+                            <div class="food-benefit">⚡ Light carb — বিকেলে ক্লান্তি কাটায়</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~90 kcal</div>
+                            <div class="food-protein">2g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 130, 5)" data-id="a2">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">চিনা বাদাম + কুমড়ার বীজ</div>
+                            <div class="food-detail">এক মুঠো চিনা বাদাম + ১ চামচ মিষ্টি কুমড়ার বীজ</div>
+                            <div class="food-benefit">💪 Zinc + Magnesium — মাসল ফাংশন ও নার্ভ সাপোর্ট</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~130 kcal</div>
+                            <div class="food-protein">5g ⬆</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pre-workout -->
+            <div class="meal-section">
+                <div class="meal-header">
+                    <div class="meal-icon">🍠</div>
+                    <div class="meal-title">
+                        <div class="meal-name">প্রি-ওয়ার্কআউট</div>
+                        <div class="meal-time">⏰ রাত ৮:০০ — ৮:৩০</div>
+                    </div>
+                    <div class="meal-tag tag-purple">PRE-WORKOUT</div>
+                </div>
+                <div class="food-list">
+                    <div class="food-item" onclick="toggleFood(this, 180, 5)" data-id="pw1">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">সেদ্ধ মিষ্টি আলু</div>
+                            <div class="food-detail">২-৩টি মিষ্টি আলু</div>
+                            <div class="food-benefit">🔥 Beta-carotene + Complex carb — ব্যায়ামের শক্তি</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~180 kcal</div>
+                            <div class="food-protein">5g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 80, 5)" data-id="pw2">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">ভেজানো কাঁচা ছোলা</div>
+                            <div class="food-detail">২০-৩০টি ভেজানো ছোলা</div>
+                            <div class="food-benefit">💪 Plant protein + Fiber — টেকসই এনার্জি</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~80 kcal</div>
+                            <div class="food-protein">5g ⬆</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Post-workout -->
+            <div class="meal-section">
+                <div class="meal-header">
+                    <div class="meal-icon">🥛</div>
+                    <div class="meal-title">
+                        <div class="meal-name">পোস্ট-ওয়ার্কআউট</div>
+                        <div class="meal-time">⏰ রাত ১০:৪৫ — ১১:০০</div>
+                    </div>
+                    <div class="meal-tag tag-green">RECOVERY</div>
+                </div>
+                <div class="food-list">
+                    <div class="food-item" onclick="toggleFood(this, 156, 12)" data-id="po1">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">২টি আস্ত সেদ্ধ ডিম</div>
+                            <div class="food-detail">কুসুমসহ (রাতের রিকভারি ডিম)</div>
+                            <div class="food-benefit">💪 Leucine + Testosterone boost — পেশী মেরামত</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~156 kcal</div>
+                            <div class="food-protein">12g ⬆</div>
+                        </div>
+                    </div>
+                    <div class="food-item" onclick="toggleFood(this, 55, 1)" data-id="po2">
+                        <button class="check-btn">✓</button>
+                        <div class="food-info">
+                            <div class="food-name">আধা কাপ খই</div>
+                            <div class="food-detail">ডিমের সাথে কার্বোহাইড্রেট হিসেবে</div>
+                            <div class="food-benefit">🚀 Insulin spike — প্রোটিন দ্রুত পেশীতে পৌঁছায়</div>
+                        </div>
+                        <div>
+                            <div class="food-cal">~55 kcal</div>
+                            <div class="food-protein">1g ⬆</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /today tab -->
+
+        <!-- WATER TAB -->
+        <div id="tab-water" class="tab-content">
+            <div class="water-card">
+                <div class="water-header">
+                    <div class="water-title">💧 পানি ট্র্যাকার</div>
+                    <div class="water-count" id="waterDisplay">0 / 12 গ্লাস</div>
+                </div>
+                <div class="water-glasses" id="glassContainer"></div>
+                <div class="water-label">প্রতি গ্লাস ≈ ২৫০ মিলি | লক্ষ্য: ৩ লিটার (১২ গ্লাস)</div>
+            </div>
+            <div class="tip-card cyan" style="margin-top:0">
+                <div class="tip-icon">🖥️</div>
+                <div class="tip-title">কোডারের পানির নিয়ম</div>
+                <div class="tip-text">স্ক্রিনের দিকে তাকিয়ে থাকার সময় ব্রেন খুব দ্রুত ডিহাইড্রেটেড হয়। টেবিলে সবসময়
+                    পানির বোতল রাখুন। প্রতি ১ ঘণ্টায় অন্তত ১-২ গ্লাস পানি পান করুন।</div>
+            </div>
+            <div class="tip-card amber" style="margin-top:12px">
+                <div class="tip-icon">⚠️</div>
+                <div class="tip-title">ডিহাইড্রেশনের লক্ষণ</div>
+                <div class="tip-text">মাথাব্যথা, মনোযোগ কমে যাওয়া, চোখ ভারী লাগা — এগুলো দেখা দিলে বুঝতে হবে পানি কম
+                    খাওয়া হচ্ছে। এখনই ১ গ্লাস পানি পান করুন।</div>
+            </div>
+        </div>
+
+        <!-- WORKOUT TAB -->
+        <div id="tab-workout" class="tab-content">
+            <div class="workout-card">
+                <div class="workout-title">🏋️ রাতের ওয়ার্কআউট — ৯:৩০ - ১০:৩০ PM</div>
+                <div class="workout-item" onclick="toggleWorkout(this)">
+                    <div class="w-check">✓</div>
+                    <div class="w-name">ওয়ার্মআপ</div>
+                    <div class="w-time">৫-১০ মিনিট</div>
+                </div>
+                <div class="workout-item" onclick="toggleWorkout(this)">
+                    <div class="w-check">✓</div>
+                    <div class="w-name">বুকডন (Push-ups)</div>
+                    <div class="w-time">৩ সেট</div>
+                </div>
+                <div class="workout-item" onclick="toggleWorkout(this)">
+                    <div class="w-check">✓</div>
+                    <div class="w-name">স্কোয়াট</div>
+                    <div class="w-time">৩ সেট</div>
+                </div>
+                <div class="workout-item" onclick="toggleWorkout(this)">
+                    <div class="w-check">✓</div>
+                    <div class="w-name">পুল-আপ / রো</div>
+                    <div class="w-time">৩ সেট</div>
+                </div>
+                <div class="workout-item" onclick="toggleWorkout(this)">
+                    <div class="w-check">✓</div>
+                    <div class="w-name">কোর এক্সারসাইজ</div>
+                    <div class="w-time">১০ মিনিট</div>
+                </div>
+                <div class="workout-item" onclick="toggleWorkout(this)">
+                    <div class="w-check">✓</div>
+                    <div class="w-name">কুলডাউন / স্ট্রেচিং</div>
+                    <div class="w-time">৫ মিনিট</div>
+                </div>
+            </div>
+            <div class="tip-card purple">
+                <div class="tip-icon">😴</div>
+                <div class="tip-title">ঘুম = মাসল গেইন</div>
+                <div class="tip-text">ব্যায়ামের পর অন্তত ৭-৮ ঘণ্টার নিরবচ্ছিন্ন ঘুম আবশ্যক। ঘুমের মধ্যেই Growth Hormone
+                    নিঃসৃত হয় এবং পেশী তৈরি হয়। ব্রেনও সারাদিনের শেখা জিনিসগুলো মেমোরিতে সেভ করে।</div>
+            </div>
+        </div>
+
+        <!-- STATS TAB -->
+        <div id="tab-stats" class="tab-content">
+            <div class="progress-section">
+                <div class="ring-container">
+                    <div class="ring-label">KCAL</div>
+                    <svg class="ring" width="70" height="70" viewBox="0 0 70 70">
+                        <circle cx="35" cy="35" r="28" fill="none" stroke="#1e2840" stroke-width="7" />
+                        <circle id="calRing" cx="35" cy="35" r="28" fill="none" stroke="#ffb300" stroke-width="7"
+                            stroke-dasharray="175.9" stroke-dashoffset="175.9" stroke-linecap="round" />
+                    </svg>
+                    <div class="ring-pct" style="color:var(--amber)" id="calPct">0%</div>
+                </div>
+                <div class="ring-container">
+                    <div class="ring-label">PROTEIN</div>
+                    <svg class="ring" width="70" height="70" viewBox="0 0 70 70">
+                        <circle cx="35" cy="35" r="28" fill="none" stroke="#1e2840" stroke-width="7" />
+                        <circle id="protRing" cx="35" cy="35" r="28" fill="none" stroke="#00ff9d" stroke-width="7"
+                            stroke-dasharray="175.9" stroke-dashoffset="175.9" stroke-linecap="round" />
+                    </svg>
+                    <div class="ring-pct" style="color:var(--green)" id="protPct">0%</div>
+                </div>
+                <div class="ring-container">
+                    <div class="ring-label">WATER</div>
+                    <svg class="ring" width="70" height="70" viewBox="0 0 70 70">
+                        <circle cx="35" cy="35" r="28" fill="none" stroke="#1e2840" stroke-width="7" />
+                        <circle id="waterRing" cx="35" cy="35" r="28" fill="none" stroke="#00e5ff" stroke-width="7"
+                            stroke-dasharray="175.9" stroke-dashoffset="175.9" stroke-linecap="round" />
+                    </svg>
+                    <div class="ring-pct" style="color:var(--cyan)" id="waterPct">0%</div>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="stats-title">📊 নিউট্রিয়েন্ট ব্রেকডাউন</div>
+                <div class="stat-row">
+                    <div class="stat-label">ক্যালোরি</div>
+                    <div class="stat-bar-wrap">
+                        <div class="stat-bar-inner" id="sb-cal" style="background:var(--amber);width:0%"></div>
+                    </div>
+                    <div class="stat-val" style="color:var(--amber)" id="sv-cal">0 kcal</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">প্রোটিন</div>
+                    <div class="stat-bar-wrap">
+                        <div class="stat-bar-inner" id="sb-prot" style="background:var(--green);width:0%"></div>
+                    </div>
+                    <div class="stat-val" style="color:var(--green)" id="sv-prot">0g</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">পানি</div>
+                    <div class="stat-bar-wrap">
+                        <div class="stat-bar-inner" id="sb-water" style="background:var(--cyan);width:0%"></div>
+                    </div>
+                    <div class="stat-val" style="color:var(--cyan)" id="sv-water">0L</div>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="stats-title">🎯 লক্ষ্যমাত্রা</div>
+                <div class="stat-row">
+                    <div class="stat-label" style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">দৈনিক
+                        ক্যালোরি টার্গেট</div>
+                    <div class="stat-val" style="color:var(--amber);font-family:var(--mono)">2000-2200</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label" style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">
+                        প্রোটিন টার্গেট</div>
+                    <div class="stat-val" style="color:var(--green);font-family:var(--mono)">80-85g</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label" style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">
+                        বর্তমান ওজন</div>
+                    <div class="stat-val" style="color:var(--cyan);font-family:var(--mono)">50 kg</div>
+                </div>
+                <div class="stat-row" style="margin-bottom:0">
+                    <div class="stat-label" style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">
+                        লক্ষ্য</div>
+                    <div class="stat-val" style="color:var(--purple);font-family:var(--mono);font-size:9px">মাসল গেইন
+                    </div>
+                </div>
+            </div>
+
+            <button class="reset-btn" onclick="resetAll()">⚠ আজকের সব ডেটা রিসেট করুন</button>
+        </div>
+
+        <!-- TIPS TAB -->
+        <div id="tab-tips" class="tab-content">
+            <div class="tip-card cyan">
+                <div class="tip-icon">🧠</div>
+                <div class="tip-title">ব্রেন ফুয়েলের বিজ্ঞান</div>
+                <div class="tip-text">আখরোটের Omega-3 DHA সরাসরি ব্রেন সেলের মেমব্রেন তৈরি করে। কাঠবাদামের Vitamin E
+                    নিউরনকে অক্সিডেটিভ স্ট্রেস থেকে রক্ষা করে। প্রতিদিন সকালে ভেজানো বাদাম খাওয়া শুরু করলে ৩-৪ সপ্তাহেই
+                    পার্থক্য বুঝতে পারবে।</div>
+            </div>
+            <div class="tip-card green">
+                <div class="tip-icon">🏋️</div>
+                <div class="tip-title">ক্যালোরি সারপ্লাসের রহস্য</div>
+                <div class="tip-text">তোমার ৫০ কেজি ওজনের জন্য BMR প্রায় ১৬০০ kcal। দৈনিক কার্যক্রম ও ব্যায়াম মিলিয়ে
+                    মোট খরচ ~১৮০০-১৯০০ kcal। এই ডায়েটে ২০০০-২২০০ kcal খেলে প্রতিদিন ~২০০-৩০০ kcal সারপ্লাস হবে — যা
+                    মাসে ~১-১.৫ কেজি মাসল গেইনের জন্য আদর্শ।</div>
+            </div>
+            <div class="tip-card amber">
+                <div class="tip-icon">⚡</div>
+                <div class="tip-title">কোডিং + ডায়েট সিনক্রোনাইজ</div>
+                <div class="tip-text">ডিপ কোডিং সেশনের আগে কার্বোহাইড্রেট খাও (ভাত/আলু)। ব্রেইনস্টর্মিং বা ডিজাইন
+                    ওয়ার্কের আগে বাদাম খাও। Debugging-এর সময় পানি বেশি পান করো — ডিহাইড্রেশন logical thinking কমিয়ে
+                    দেয়।</div>
+            </div>
+            <div class="tip-card purple">
+                <div class="tip-icon">😴</div>
+                <div class="tip-title">ঘুম = সেরা সাপ্লিমেন্ট</div>
+                <div class="tip-text">রাত ১১টায় ঘুমানো মানে সকাল ৭টায় ওঠা = ৮ ঘণ্টা। এই ৮ ঘণ্টায় ব্রেন নতুন
+                    কোড/ধারণাগুলো long-term memory-তে সেভ করে, Growth Hormone নিঃসৃত হয় এবং পেশী তৈরি হয়। এটাই সেরা
+                    বিনামূল্যের সাপ্লিমেন্ট।</div>
+            </div>
+        </div>
+
+    </div><!-- /content -->
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+        <button class="nav-btn active" onclick="switchNav(this,'today')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">মেনু</span>
+        </button>
+        <button class="nav-btn" onclick="switchNav(this,'water')">
+            <span class="nav-icon">💧</span>
+            <span class="nav-label">পানি</span>
+        </button>
+        <button class="nav-btn" onclick="switchNav(this,'workout')">
+            <span class="nav-icon">🏋️</span>
+            <span class="nav-label">ব্যায়াম</span>
+        </button>
+        <button class="nav-btn" onclick="switchNav(this,'stats')">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">স্ট্যাটস</span>
+        </button>
+        <button class="nav-btn" onclick="switchNav(this,'tips')">
+            <span class="nav-icon">💡</span>
+            <span class="nav-label">টিপস</span>
+        </button>
+    </div>
+
+    <script>
+        // ── STATE ──
+        let totalCal = 0, totalProtein = 0, waterGlasses = 0;
+        const MAX_CAL = 2100, MAX_PROTEIN = 82, MAX_WATER = 12;
+        const checkedFoods = new Set();
+        const checkedWorkouts = new Set();
+
+        // ── DATE ──
+        const now = new Date();
+        const dayNames = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+        const monthNames = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+        document.getElementById('dateBadge').innerHTML =
+            dayNames[now.getDay()] + '<br>' + now.getDate() + ' ' + monthNames[now.getMonth()];
+
+        // ── WATER GLASSES INIT ──
+        const gc = document.getElementById('glassContainer');
+        for (let i = 0; i < 12; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'glass-btn';
+            btn.onclick = () => toggleGlass(i);
+            btn.id = 'glass-' + i;
+            btn.innerHTML = '<div class="glass-fill" id="gf-' + i + '" style="height:0%"></div><div class="glass-icon">🥛</div>';
+            gc.appendChild(btn);
+        }
+
+        // ── TOGGLE FOOD ──
+        function toggleFood(el, cal, protein) {
+            const id = el.dataset.id;
+            if (checkedFoods.has(id)) {
+                checkedFoods.delete(id);
+                el.classList.remove('checked');
+                totalCal -= cal;
+                totalProtein -= protein;
+                showToast('❌ সরানো হয়েছে');
+            } else {
+                checkedFoods.add(id);
+                el.classList.add('checked');
+                totalCal += cal;
+                totalProtein += protein;
+                showToast('✅ খাওয়া হয়েছে!');
+            }
+            updateMacros();
+        }
+
+        // ── TOGGLE WATER GLASS ──
+        function toggleGlass(i) {
+            const btn = document.getElementById('glass-' + i);
+            const fill = document.getElementById('gf-' + i);
+            if (btn.classList.contains('filled')) {
+                btn.classList.remove('filled');
+                fill.style.height = '0%';
+                waterGlasses--;
+            } else {
+                btn.classList.add('filled');
+                fill.style.height = '80%';
+                waterGlasses++;
+                showToast('💧 পানি পান করা হয়েছে!');
+            }
+            document.getElementById('waterDisplay').textContent = waterGlasses + ' / 12 গ্লাস';
+            updateMacros();
+        }
+
+        // ── TOGGLE WORKOUT ──
+        function toggleWorkout(el) {
+            el.classList.toggle('checked');
+            if (el.classList.contains('checked')) showToast('💪 দারুণ! এগিয়ে যাও!');
+        }
+
+        // ── UPDATE MACROS ──
+        function updateMacros() {
+            const calPct = Math.min((totalCal / MAX_CAL) * 100, 100);
+            const protPct = Math.min((totalProtein / MAX_PROTEIN) * 100, 100);
+            const waterL = (waterGlasses * 0.25).toFixed(2);
+            const waterPct = Math.min((waterGlasses / MAX_WATER) * 100, 100);
+
+            // top bar
+            document.getElementById('calVal').textContent = totalCal + ' / 2100';
+            document.getElementById('proteinVal').textContent = totalProtein + ' / 82g';
+            document.getElementById('waterVal').textContent = waterL + ' / 3L';
+            document.getElementById('calBar').style.width = calPct + '%';
+            document.getElementById('proteinBar').style.width = protPct + '%';
+            document.getElementById('waterBar').style.width = waterPct + '%';
+
+            // rings
+            const r = 28, circum = 2 * Math.PI * r;
+            setRing('calRing', calPct, circum);
+            setRing('protRing', protPct, circum);
+            setRing('waterRing', waterPct, circum);
+            document.getElementById('calPct').textContent = Math.round(calPct) + '%';
+            document.getElementById('protPct').textContent = Math.round(protPct) + '%';
+            document.getElementById('waterPct').textContent = Math.round(waterPct) + '%';
+
+            // stat bars
+            document.getElementById('sb-cal').style.width = calPct + '%';
+            document.getElementById('sb-prot').style.width = protPct + '%';
+            document.getElementById('sb-water').style.width = waterPct + '%';
+            document.getElementById('sv-cal').textContent = totalCal + ' kcal';
+            document.getElementById('sv-prot').textContent = totalProtein + 'g';
+            document.getElementById('sv-water').textContent = waterL + 'L';
+        }
+
+        function setRing(id, pct, circum) {
+            const offset = circum - (pct / 100) * circum;
+            document.getElementById(id).style.strokeDashoffset = offset;
+        }
+
+        // ── TAB SWITCH ──
+        function switchTab(name) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            const tabs = document.querySelectorAll('.tab');
+            const map = { today: 0, water: 1, workout: 2, stats: 3, tips: 4 };
+            tabs[map[name]].classList.add('active');
+        }
+
+        function switchNav(btn, name) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            switchTab(name);
+        }
+
+        // ── RESET ──
+        function resetAll() {
+            if (!confirm('সব ডেটা রিসেট করবেন?')) return;
+            totalCal = 0; totalProtein = 0; waterGlasses = 0;
+            checkedFoods.clear();
+            document.querySelectorAll('.food-item').forEach(el => el.classList.remove('checked'));
+            document.querySelectorAll('.workout-item').forEach(el => el.classList.remove('checked'));
+            for (let i = 0; i < 12; i++) {
+                document.getElementById('glass-' + i).classList.remove('filled');
+                document.getElementById('gf-' + i).style.height = '0%';
+            }
+            document.getElementById('waterDisplay').textContent = '0 / 12 গ্লাস';
+            updateMacros();
+            showToast('🔄 রিসেট হয়েছে');
+        }
+
+        // ── TOAST ──
+        let toastTimer;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+        }
+    </script>
+</body>
+
+</html>
